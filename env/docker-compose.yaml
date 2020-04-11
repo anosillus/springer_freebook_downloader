@@ -1,0 +1,20 @@
+version: "3"
+
+services:
+  jupyter:
+    restart: always
+    image: jupyter/scipy-notebook
+    volumes:
+      - ./../main:/home/jovyan/main
+      - ./../template:/home/jovyan/template
+      - ./../playground:/home/jovyan/playground
+      - ./../data:/home/jovyan/data
+      - ./../src:/home/jovyan/src
+      - ./../reports:/home/jovyan/reports
+      - ./../docker_env/python_env:/home/jovyan/env
+    ports:
+      - "8888:8888"
+    environment:
+      ROOT: "TRUE"
+      TZ: Asia/Tokyo
+    command: "/opt/conda/bin/jupyter lab --notebook-dir=/home/jovyan"
