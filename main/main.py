@@ -1,9 +1,9 @@
-#! /usr/bin/env python3
+# /usr/bin/env python3
 # -*- coding: utf-8 -*-
 # vim:fenc=utf-8
 # File name: test.py
 # First Edit: 2020-04-11
-# Last Change: 12-Apr-2020.
+# Last Change: 13-Apr-2020.
 """
 This scrip is for test
 
@@ -135,12 +135,15 @@ class Scraper:
         'file save target directory'
         """
 
-        with DownloadProgressBar(
-            unit="B", unit_scale=True, miniters=1, desc=url.split("/")[-1]
-        ) as t:
-            urllib.request.urlretrieve(
-                url, filename=output_path, reporthook=t.update_to
-            )
+        try:
+            with DownloadProgressBar(
+                unit="B", unit_scale=True, miniters=1, desc=url.split("/")[-1]
+            ) as t:
+                urllib.request.urlretrieve(
+                    url, filename=output_path, reporthook=t.update_to
+                )
+        except:
+            raise output_path
 
     def get_page_information(self, url):
         self.browser.open(url)
@@ -192,9 +195,9 @@ class Scraper:
     def get_pdf_name(self, detail_page_html_bs):
         return (
             self.data_directory
-            + detail_page_html_bs.select(TITLE_SELECTOR_IN_BOOK_INFO)[
-                0
-            ].text.replace(" ", "_")
+            + detail_page_html_bs.select(TITLE_SELECTOR_IN_BOOK_INFO)[0]
+            .text.replace(" ", "_")
+            .replace("/", "|")
             + ".pdf"
         )
 
@@ -217,15 +220,17 @@ scraper = Scraper(url=START_URL)
 with open("./../log/detail_page_urls", "rb") as d_file_r:
     scraper.detail_page_urls = pickle.load(d_file_r)
 
-for i in range(0, len(scraper.detail_page_urls), 60):
-    if i + 60 > len(scraper.detail_page_urls):
+Main_Progress = tqdm(range(320, len(scraper.detail_page_urls), 10))
+
+for i in Main_Progress:
+    print(i)
+
+    if i + 10 > len(scraper.detail_page_urls):
         data = scraper.collect_file_urls(
             init_n=i, max_n=len(scraper.detail_page_urls)
         )
     else:
-        data = scraper.collect_file_urls(init_n=i, max_n=i + 60)
+        data = scraper.collect_file_urls(init_n=i, max_n=i + 10)
     write_history("./../log/pdf_data_working.csv", data)
 
     scraper.download_pdfs(data)
-
-    break
