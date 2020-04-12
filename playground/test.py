@@ -41,6 +41,11 @@ NEXT_PAGE_SELECTOR = (
 )
 
 
+def write_history(filename, data):
+    with open(filename, mode="a") as f:
+        f.write(data)
+
+
 class DownloadProgressBar(tqdm):
     def update_to(self, b=1, bsize=1, tsize=None):
         if tsize is not None:
@@ -82,26 +87,30 @@ class Scraper:
         #     print("Finish")
         #     print(len(self.detail_page_urls))
 
-    def collect_pdf_file_urls(self):
-        for detail_page_link in tqdm(self.detail_page_urls):
+    def collect_pdf_file_urls(self, init_n=0, range_n=60):
+        if init_n + range_n > len(self.detail_page_urls):
+            max_range = len(self.detail_page_urls)
+
+            if init_n > range_n > len(self.detail_page_urls):
+                raise "Finished!"
+        else:
+            max_range = init_n + range_n
+
+        for detail_page_link in tqdm(self.detail_page_urls[init_n:max_range]):
             detail_page_bs = self.get_page_information(detail_page_link)
 
             if detail_page_bs.select(EPUB_LINK_SELECTOR_IN_BOOK_INFO):
-                self.file_detail_d.update(
-                    {
-                        self.get_epub_name(
-                            detail_page_bs
-                        ): self.get_epub_url_link(detail_page_bs),
-                    }
-                )
+                name = self.get_epub_name(detail_page_bs)
+                url = self.get_epub_url_link(detail_page_bs)
+                self.file_detail_d.update({name: url})
             else:
-                self.file_detail_d.update(
-                    {
-                        self.get_pdf_name(
-                            detail_page_bs
-                        ): self.get_pdf_url_link(detail_page_bs),
-                    }
-                )
+                name = self.get_pdf_name(detail_page_bs)
+                url = self.get_pdf_url_link(detail_page_bs)
+                self.file_detail_d.update({name: url})
+
+            write_history(
+                "./../log/pdf_data_working", str(name + ", " + str(url))
+            )
 
     def download_pdfs(self):
         for output_path, url in tqdm(
@@ -203,7 +212,7 @@ scraper = Scraper(url=START_URL)
 with open("./../log/detail_page_urls", "rb") as d_file_r:
     scraper.detail_page_urls = pickle.load(d_file_r)
 
-scraper.collect_pdf_file_urls()
+scraper.collect_pdf_file_urls(init_n=0, range_n=60)
 
 with open("./../log/pdf_page_urls", "wb") as pdf_file:
     pickle.dump(scraper.file_detail_d, pdf_file)
