@@ -9,6 +9,7 @@ This scrip is for test
 
 """
 #
+import csv
 import pickle
 import urllib.request
 from collections import OrderedDict
@@ -16,6 +17,7 @@ from time import sleep
 
 import bs4
 import mechanicalsoup
+import pandas as pd
 from tqdm import tqdm
 
 # from tqdm.auto import trange
@@ -41,9 +43,21 @@ NEXT_PAGE_SELECTOR = (
 )
 
 
-def write_history(filename, data):
-    with open(filename, mode="a") as f:
-        f.write(data)
+def write_history(filename, data_l):
+    # with open("outfile", "w") as outfile:
+    # outfile.write("\n".join(data_l))
+    with open("filename", "a", newline="") as csvfile:
+        fieldnames = ["name", "link"]
+
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        for name_v, link_v in data.items():
+            writer.writerow({fieldnames[0]: name_v, fieldnames[1]: link_v})
+
+
+def read_history(filename):
+    with open(filename, "w") as outfile:
+        return pd.read_csv(outfile)
 
 
 class DownloadProgressBar(tqdm):
@@ -87,35 +101,26 @@ class Scraper:
         #     print("Finish")
         #     print(len(self.detail_page_urls))
 
-    def collect_pdf_file_urls(self, init_n=0, range_n=60):
-        if init_n + range_n > len(self.detail_page_urls):
-            max_range = len(self.detail_page_urls)
+    def collect_file_urls(self, init_n=0, max_n=0):
+        names = []
+        urls = []
 
-            if init_n > range_n > len(self.detail_page_urls):
-                raise "Finished!"
-        else:
-            max_range = init_n + range_n
-
-        for detail_page_link in tqdm(self.detail_page_urls[init_n:max_range]):
+        for detail_page_link in tqdm(self.detail_page_urls[init_n:max_n]):
             detail_page_bs = self.get_page_information(detail_page_link)
 
             if detail_page_bs.select(EPUB_LINK_SELECTOR_IN_BOOK_INFO):
-                name = self.get_epub_name(detail_page_bs)
-                url = self.get_epub_url_link(detail_page_bs)
-                self.file_detail_d.update({name: url})
+                names.append(self.get_epub_name(detail_page_bs))
+                urls.append(self.get_epub_url_link(detail_page_bs))
+                # self.file_detail_d.update({names: urls})
             else:
-                name = self.get_pdf_name(detail_page_bs)
-                url = self.get_pdf_url_link(detail_page_bs)
-                self.file_detail_d.update({name: url})
+                names.append(self.get_pdf_name(detail_page_bs))
+                urls.append(self.get_pdf_url_link(detail_page_bs))
+                # self.file_detail_d.update({names: urls})
 
-            write_history(
-                "./../log/pdf_data_working", str(name + ", " + str(url))
-            )
+        return dict(zip(names, urls))
 
-    def download_pdfs(self):
-        for output_path, url in tqdm(
-            self.file_detail_d.items(), desc="file-loop"
-        ):
+    def download_pdfs(self, data):
+        for output_path, url in tqdm(data.items(), desc="file-loop"):
             sleep(self.sleep_time)
             self.download_url(url, output_path)
 
@@ -212,11 +217,15 @@ scraper = Scraper(url=START_URL)
 with open("./../log/detail_page_urls", "rb") as d_file_r:
     scraper.detail_page_urls = pickle.load(d_file_r)
 
-scraper.collect_pdf_file_urls(init_n=0, range_n=60)
+for i in range(0, len(scraper.detail_page_urls), 60):
+    if i + 60 > len(scraper.detail_page_urls):
+        data = scraper.collect_file_urls(
+            init_n=i, max_n=len(scraper.detail_page_urls)
+        )
+    else:
+        data = scraper.collect_file_urls(init_n=i, max_n=i + 60)
+    write_history("./../log/pdf_data_working.csv", data)
 
-with open("./../log/pdf_page_urls", "wb") as pdf_file:
-    pickle.dump(scraper.file_detail_d, pdf_file)
+    scraper.download_pdfs(data)
 
-scraper.sleep_time = 40
-
-scraper.downlod_pdfs()
+    break
